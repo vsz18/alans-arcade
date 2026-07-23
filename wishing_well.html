@@ -7,6 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { height: 100vh; overflow: hidden; }
     body {
       background: #07071a;
       font-family: 'Press Start 2P', cursive;
@@ -14,9 +15,8 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
-      overflow: hidden;
     }
+    #wrap { display: flex; flex-direction: column; align-items: center; transform-origin: top center; }
     #topbar {
       display: flex; justify-content: space-between; align-items: center;
       width: 480px; max-width: 100%; margin-bottom: 4px;
@@ -49,7 +49,7 @@
   </style>
 </head>
 <body>
-
+<div id="wrap">
 <div id="topbar">
   <button class="tb-btn" onclick="goBack()">← BACK</button>
   <span id="topbar-title">🕯️ WISHING WELL</span>
@@ -78,6 +78,7 @@ const BL = Math.round((W - (BCOLS * BW + (BCOLS - 1) * BGX)) / 2); // 22
 const BT = 56;
 const BASE_SPEED = 4.5;
 const HS_KEY = 'wishing-well-hi';
+const LOW_PERF = window.matchMedia('(pointer: coarse)').matches;
 
 // ── Level patterns ────────────────────────────────────────────────────
 // 0=empty, 1=1-hit, 2=2-hit, 9=indestructible
@@ -405,6 +406,7 @@ function tickPowerupTimers() {
 
 // ── Particles ─────────────────────────────────────────────────────────
 function spawnParticles(x, y, color, n = 8) {
+  if (LOW_PERF) n = Math.min(n, 4);
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + Math.random() * 0.4;
     const spd = 1.5 + Math.random() * 3;
@@ -446,7 +448,8 @@ function drawBg() {
 
   // Stars
   ctx.save();
-  for (let i = 0; i < 50; i++) {
+  const starCount = LOW_PERF ? 15 : 50;
+  for (let i = 0; i < starCount; i++) {
     const sx = (i * 137.5) % W;
     const sy = (i * 97.3) % (H * 0.7);
     const tw = 0.4 + 0.6 * Math.abs(Math.sin(animFrame * 0.025 + i * 1.1));
@@ -467,7 +470,7 @@ function drawBricks() {
     const c = indestr ? '#666' : (b.hp === 2 ? ROW_COL_2[b.row % 5] : ROW_COL_1[b.row % 5]);
 
     ctx.save();
-    ctx.shadowBlur  = indestr ? 0 : 8;
+    ctx.shadowBlur  = (indestr || LOW_PERF) ? 0 : 8;
     ctx.shadowColor = c;
 
     // Body
@@ -499,7 +502,7 @@ function drawBricks() {
       const flicker = Math.sin(animFrame * 0.18 + b.col * 0.7) * 1.2;
 
       ctx.save();
-      ctx.shadowBlur  = 6;
+      ctx.shadowBlur  = LOW_PERF ? 0 : 6;
       ctx.shadowColor = '#ff6600';
       ctx.fillStyle   = '#ff4400';
       ctx.beginPath();
@@ -518,14 +521,14 @@ function drawBricks() {
 function drawBall() {
   ctx.save();
   const fc = ball.fireball ? '#ff6600' : '#fff';
-  ctx.shadowBlur  = ball.fireball ? 18 : 12;
+  ctx.shadowBlur  = LOW_PERF ? 0 : (ball.fireball ? 18 : 12);
   ctx.shadowColor = ball.fireball ? '#ff9900' : '#fff6cc';
   ctx.fillStyle   = fc;
   ctx.beginPath();
   ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI * 2);
   ctx.fill();
   if (ball.fireball) {
-    ctx.shadowBlur = 22; ctx.shadowColor = '#ff4400';
+    ctx.shadowBlur = LOW_PERF ? 0 : 22; ctx.shadowColor = '#ff4400';
     ctx.fillStyle = '#ffcc00';
     ctx.beginPath();
     ctx.arc(ball.x, ball.y, BALL_R * 0.5, 0, Math.PI * 2);
@@ -539,7 +542,7 @@ function drawPaddle() {
   const gc = ctx.createLinearGradient(paddle.x, PADDLE_Y, paddle.x, PADDLE_Y + PADDLE_H);
   gc.addColorStop(0, '#ffd700');
   gc.addColorStop(1, '#cc8800');
-  ctx.shadowBlur  = 10;
+  ctx.shadowBlur  = LOW_PERF ? 0 : 10;
   ctx.shadowColor = '#ffd700';
   ctx.fillStyle   = gc;
   rr(paddle.x, PADDLE_Y, paddle.w, PADDLE_H, 5);
@@ -556,7 +559,7 @@ function drawPaddle() {
 function drawPowerups() {
   for (const p of powerups) {
     ctx.save();
-    ctx.shadowBlur  = 10;
+    ctx.shadowBlur  = LOW_PERF ? 0 : 10;
     ctx.shadowColor = p.color;
     ctx.fillStyle   = p.color + '55';
     ctx.beginPath();
@@ -576,7 +579,7 @@ function drawParticles() {
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.fillStyle   = p.color;
-    ctx.shadowBlur  = 4;
+    ctx.shadowBlur  = LOW_PERF ? 0 : 4;
     ctx.shadowColor = p.color;
     ctx.beginPath();
     ctx.arc(p.x, p.y, p.r * alpha, 0, Math.PI * 2);
@@ -628,7 +631,11 @@ function handleState() {
     } else {
       clearOv();
       paddle.x = W / 2 - PADDLE_DEF_W / 2;
-      initLevel();
+      paddle.w = PADDLE_DEF_W;
+      powerups = [];
+      wideTimer = 0; fireTimer = 0; slowTimer = 0;
+      ball.fireball = false;
+      resetBall();
       state = 'launch';
     }
   }
@@ -671,6 +678,26 @@ canvas.addEventListener('mousemove', e => {
   const mx = (e.clientX - rect.left) * (W / rect.width);
   paddle.x = Math.max(0, Math.min(W - paddle.w, mx - paddle.w / 2));
 });
+
+function touchPaddlePos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const tx = (e.touches[0].clientX - rect.left) * (W / rect.width);
+  paddle.x = Math.max(0, Math.min(W - paddle.w, tx - paddle.w / 2));
+}
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  touchPaddlePos(e);
+  if (state === 'launch') launchBall();
+  else if (state === 'idle') { clearOv(); startGame(); }
+  else if (state === 'gameover' || state === 'win') {
+    lives = 3; score = 0; currentLevel = 0;
+    updateHUD(); clearOv(); initLevel(); state = 'launch';
+  }
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  touchPaddlePos(e);
+}, { passive: false });
 
 document.addEventListener('keydown', e => {
   keys[e.key] = true;
@@ -730,9 +757,11 @@ function loop() {
   if (state === 'playing') {
     movePaddle();
     moveBall();
-    checkBrickHits();
-    updatePowerups();
-    tickPowerupTimers();
+    if (state === 'playing') { // re-check: moveBall may have triggered loseLife
+      checkBrickHits();
+      updatePowerups();
+      tickPowerupTimers();
+    }
     updateParticles();
   }
 
@@ -818,12 +847,27 @@ function loop() {
 // ── Boot ─────────────────────────────────────────────────────────────
 (function boot() {
   document.getElementById('best').textContent = loadBest();
-  // Pre-fill bricks for idle screen
   bricks = makeBricks(LEVELS[0]);
   paddle.x = W / 2 - PADDLE_DEF_W / 2;
   ball.x = W / 2; ball.y = PADDLE_Y - BALL_R - 1;
   requestAnimationFrame(loop);
+
+  let _wellNatH = 0;
+  function fitToScreen() {
+    const wrap = document.getElementById('wrap');
+    if (!_wellNatH) {
+      wrap.style.transform = ''; wrap.style.marginTop = '';
+      _wellNatH = wrap.getBoundingClientRect().height;
+    }
+    const s = Math.max(0.35, Math.min(window.innerWidth / W, window.innerHeight / _wellNatH, 1));
+    wrap.style.transform = `scale(${s})`;
+    wrap.style.marginTop = Math.max(0, (window.innerHeight - _wellNatH * s) / 2) + 'px';
+    document.documentElement.style.overflow = (_wellNatH * s > window.innerHeight) ? 'auto' : 'hidden';
+  }
+  window.addEventListener('resize', fitToScreen);
+  fitToScreen();
 })();
 </script>
+</div><!-- #wrap -->
 </body>
 </html>

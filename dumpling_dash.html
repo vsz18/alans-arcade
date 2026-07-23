@@ -5,16 +5,20 @@
 <title>Dumpling Dash</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100vh; overflow: hidden; }
   body {
     background: #0d0d1a;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 100vh;
     font-family: 'Arial Black', Arial, sans-serif;
     color: #fff;
     user-select: none;
+  }
+  #wrap {
+    display: flex; flex-direction: column; align-items: center;
+    transform-origin: top center;
   }
   #topbar {
     display: flex; justify-content: space-between; align-items: center;
@@ -54,6 +58,7 @@
 </style>
 </head>
 <body>
+<div id="wrap">
 <div id="topbar">
   <button class="tb-btn" onclick="goBack()">← BACK</button>
   <span id="topbar-title">🥟 DUMPLING DASH</span>
@@ -123,6 +128,8 @@ let totalDots = 0;
 let dotsLeft = 0;
 let animFrame = 0;
 
+let wallCanvas = null, dotCanvas = null, dotsDirty = true;
+
 // ── Init ───────────────────────────────────────────────────────────────────
 function countDots(m) {
   let n = 0;
@@ -134,6 +141,7 @@ function resetMap() {
   map = T.map(r => [...r]);
   dotsLeft = countDots(map);
   totalDots = dotsLeft;
+  dotsDirty = true;
 }
 
 function resetPac() {
@@ -262,11 +270,13 @@ function movePac() {
       map[r][c] = 3;
       score += 10;
       dotsLeft--;
+      dotsDirty = true;
       updateHUD();
     } else if (map[r][c] === 2) {
       map[r][c] = 3;
       score += 50;
       dotsLeft--;
+      dotsDirty = true;
       powerTimer = POWER_FRAMES;
       updateHUD();
     }
@@ -347,6 +357,7 @@ function moveGhost(g) {
     const gc = col(g.x), gr = row(g.y);
     if (gr >= 10 && gr <= 11 && gc >= 8 && gc <= 12) {
       g.eaten = false;
+      g.released = false; // triggers normal exit sequence after cooldown
       g.dx = 0; g.dy = 0;
       g.releaseTimer = 90;
     }
@@ -373,40 +384,65 @@ function checkGhostHit() {
 }
 
 // ── Drawing ────────────────────────────────────────────────────────────────
-function drawMaze() {
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+// Pre-renders static walls + ghost door from template T once per game start.
+function buildWallCanvas() {
+  wallCanvas = document.createElement('canvas');
+  wallCanvas.width = canvas.width; wallCanvas.height = canvas.height;
+  const wc = wallCanvas.getContext('2d');
+  wc.fillStyle = '#000';
+  wc.fillRect(0, 0, wallCanvas.width, wallCanvas.height);
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       const x = c * CELL, y = r * CELL;
-      const v = map[r][c];
-
+      const v = T[r][c];
       if (v === 0) {
-        // Wall
-        ctx.fillStyle = '#1a237e';
-        ctx.fillRect(x, y, CELL, CELL);
-        // Neon border effect
-        ctx.strokeStyle = '#3949ab';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(x + 0.75, y + 0.75, CELL - 1.5, CELL - 1.5);
-      } else if (v === 1) {
-        // Normal dumpling dot
-        ctx.font = `${CELL * 0.5}px serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('🥟', x + CELL / 2, y + CELL / 2);
-      } else if (v === 2) {
-        // Power dumpling (bigger, pulsing)
+        wc.fillStyle = '#1a237e';
+        wc.fillRect(x, y, CELL, CELL);
+        wc.strokeStyle = '#3949ab';
+        wc.lineWidth = 1.5;
+        wc.strokeRect(x + 0.75, y + 0.75, CELL - 1.5, CELL - 1.5);
+      } else if (v === 9) {
+        wc.fillStyle = '#ff9f43';
+        wc.fillRect(x + 4, y + CELL / 2 - 2, CELL - 8, 4);
+      }
+    }
+  }
+}
+
+// Redraws the dot layer into dotCanvas. Called only when dotsDirty is true.
+function redrawDotCanvas() {
+  if (!dotCanvas) {
+    dotCanvas = document.createElement('canvas');
+    dotCanvas.width = canvas.width; dotCanvas.height = canvas.height;
+  }
+  const dc = dotCanvas.getContext('2d');
+  dc.clearRect(0, 0, dotCanvas.width, dotCanvas.height);
+  dc.textAlign = 'center'; dc.textBaseline = 'middle';
+  dc.font = `${CELL * 0.5}px serif`;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (map[r][c] === 1) {
+        dc.fillText('🥟', c * CELL + CELL / 2, r * CELL + CELL / 2);
+      }
+    }
+  }
+  dotsDirty = false;
+}
+
+function drawMaze() {
+  if (!wallCanvas) buildWallCanvas();
+  ctx.drawImage(wallCanvas, 0, 0);
+  if (dotsDirty) redrawDotCanvas();
+  ctx.drawImage(dotCanvas, 0, 0);
+  // Power dumplings: only 4 cells, animate each frame
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (map[r][c] === 2) {
         const pulse = 0.75 + 0.25 * Math.sin(animFrame * 0.1);
         ctx.font = `${CELL * 0.85 * pulse}px serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('🥟', x + CELL / 2, y + CELL / 2);
-      } else if (v === 9) {
-        // Ghost house door
-        ctx.fillStyle = '#ff9f43';
-        ctx.fillRect(x + 4, y + CELL / 2 - 2, CELL - 8, 4);
+        ctx.fillText('🥟', c * CELL + CELL / 2, r * CELL + CELL / 2);
       }
     }
   }
@@ -690,6 +726,24 @@ score = 0; lives = 3; level = 1;
 resetMap(); resetPac(); resetGhosts();
 document.getElementById('startBtn').addEventListener('click', startGame);
 loop();
+
+// ── Fit to screen ──────────────────────────────────────────────────────────
+let naturalH = 0;
+function fitToScreen() {
+  const wrap = document.getElementById('wrap');
+  if (!naturalH) {
+    wrap.style.transform = '';
+    wrap.style.marginTop = '';
+    naturalH = wrap.getBoundingClientRect().height;
+  }
+  const s = Math.max(0.35, Math.min(window.innerWidth / (COLS * CELL), window.innerHeight / naturalH, 1));
+  wrap.style.transform = `scale(${s})`;
+  wrap.style.marginTop = Math.max(0, (window.innerHeight - naturalH * s) / 2) + 'px';
+  document.documentElement.style.overflow = (naturalH * s > window.innerHeight) ? 'auto' : 'hidden';
+}
+window.addEventListener('resize', fitToScreen);
+fitToScreen();
 </script>
+</div><!-- #wrap -->
 </body>
 </html>

@@ -5,17 +5,18 @@
 <title>长寿面 Longevity Noodle</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100vh; overflow: hidden; }
   body {
     background: #1a0505;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 100vh;
     font-family: 'Arial Black', Arial, sans-serif;
     color: #fff;
     user-select: none;
   }
+  #wrap { display: flex; flex-direction: column; align-items: center; transform-origin: top center; }
   #topbar {
     display: flex; justify-content: space-between; align-items: center;
     width: 500px; max-width: 100%; margin-bottom: 4px;
@@ -65,7 +66,7 @@
 </style>
 </head>
 <body>
-
+<div id="wrap">
 <div id="topbar">
   <button class="tb-btn" onclick="goBack()">← BACK</button>
   <span id="topbar-title">长寿面 · LONGEVITY NOODLE</span>
@@ -94,6 +95,7 @@ const CELL = 20;
 const COLS = 25;
 const ROWS = 25;
 const HS_KEY = 'longevity-noodle-hi';
+const LOW_PERF = window.matchMedia('(pointer: coarse)').matches;
 
 const canvas = document.getElementById('c');
 const ctx    = canvas.getContext('2d');
@@ -190,34 +192,43 @@ function die() {
 }
 
 // ── Drawing ────────────────────────────────────────────────────────────────
-function drawBg() {
-  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+let gridCanvas = null;
+
+function buildGridCanvas() {
+  gridCanvas = document.createElement('canvas');
+  gridCanvas.width = canvas.width; gridCanvas.height = canvas.height;
+  const gc = gridCanvas.getContext('2d');
+  const grad = gc.createLinearGradient(0, 0, 0, canvas.height);
   grad.addColorStop(0, '#1a0505');
   grad.addColorStop(1, '#0d0202');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  ctx.strokeStyle = 'rgba(160,20,20,0.14)';
-  ctx.lineWidth = 0.5;
+  gc.fillStyle = grad;
+  gc.fillRect(0, 0, canvas.width, canvas.height);
+  gc.strokeStyle = 'rgba(160,20,20,0.14)';
+  gc.lineWidth = 0.5;
   for (let c = 0; c <= COLS; c++) {
-    ctx.beginPath(); ctx.moveTo(c*CELL, 0); ctx.lineTo(c*CELL, canvas.height); ctx.stroke();
+    gc.beginPath(); gc.moveTo(c*CELL, 0); gc.lineTo(c*CELL, canvas.height); gc.stroke();
   }
   for (let r = 0; r <= ROWS; r++) {
-    ctx.beginPath(); ctx.moveTo(0, r*CELL); ctx.lineTo(canvas.width, r*CELL); ctx.stroke();
+    gc.beginPath(); gc.moveTo(0, r*CELL); gc.lineTo(canvas.width, r*CELL); gc.stroke();
   }
+  gc.save();
+  gc.fillStyle = 'rgba(160,20,20,0.07)';
+  gc.font = 'bold 200px serif';
+  gc.textAlign = 'center';
+  gc.textBaseline = 'middle';
+  gc.fillText('福', canvas.width/2, canvas.height/2);
+  gc.restore();
+}
 
-  ctx.save();
-  ctx.fillStyle = 'rgba(160,20,20,0.07)';
-  ctx.font = 'bold 200px serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('福', canvas.width/2, canvas.height/2);
-  ctx.restore();
+function drawBg() {
+  if (!gridCanvas) buildGridCanvas();
+  ctx.drawImage(gridCanvas, 0, 0);
 }
 
 // Returns the canvas position of segment i with a subtle living wobble
 function segPt(i) {
   const s = snake[i];
+  if (LOW_PERF) return { x: s.x * CELL + CELL/2, y: s.y * CELL + CELL/2 };
   const w = 1.4;
   return {
     x: s.x * CELL + CELL/2 + Math.sin(animFrame * 0.055 + i * 0.75) * w,
@@ -261,12 +272,12 @@ function drawNoodle() {
 
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.shadowBlur  = state === 'dead' ? 16 : 6;
+  ctx.shadowBlur  = LOW_PERF ? 0 : (state === 'dead' ? 16 : 6);
   ctx.shadowColor = state === 'dead' ? '#ff2222' : 'rgba(245,190,40,0.55)';
 
   strokeRuns(CELL * 0.76, color);
 
-  if (state !== 'dead') {
+  if (state !== 'dead' && !LOW_PERF) {
     ctx.shadowBlur = 0;
     strokeRuns(CELL * 0.28, NOODLE_HI);
   }
@@ -284,7 +295,7 @@ function drawHead(alpha) {
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.fillStyle   = state === 'dead' ? '#ff4444' : '#fad040';
-  ctx.shadowBlur  = 8;
+  ctx.shadowBlur  = LOW_PERF ? 0 : 8;
   ctx.shadowColor = state === 'dead' ? '#ff0000' : 'rgba(250,200,40,0.8)';
   ctx.beginPath(); ctx.arc(hx, hy, r, 0, Math.PI * 2); ctx.fill();
   ctx.shadowBlur = 0;
@@ -322,7 +333,7 @@ function drawFood() {
   const glowMap = { peach:'#ff9f43', dumpling:'#74b9ff', envelope:'#ff6b6b', cake:'#fd79a8' };
 
   ctx.save();
-  ctx.shadowBlur  = 16;
+  ctx.shadowBlur  = LOW_PERF ? 0 : 16;
   ctx.shadowColor = glowMap[food.type] || '#ffd700';
   ctx.font = `${CELL * 1.08 * pulse}px serif`;
   ctx.textAlign    = 'center';
@@ -447,6 +458,23 @@ snake = [{x:12,y:12}]; dir = {x:1,y:0}; nextDir = {x:1,y:0}; food = null;
 document.getElementById('startBtn').addEventListener('click', startGame);
 document.getElementById('best').textContent = loadHi();
 loop();
+
+let _noodleNatH = 0;
+function fitToScreen() {
+  const wrap = document.getElementById('wrap');
+  if (!_noodleNatH) {
+    wrap.style.transform = ''; wrap.style.marginTop = '';
+    _noodleNatH = wrap.getBoundingClientRect().height;
+  }
+  const gameW = COLS * CELL;
+  const s = Math.max(0.35, Math.min(window.innerWidth / gameW, window.innerHeight / _noodleNatH, 1));
+  wrap.style.transform = `scale(${s})`;
+  wrap.style.marginTop = Math.max(0, (window.innerHeight - _noodleNatH * s) / 2) + 'px';
+  document.documentElement.style.overflow = (_noodleNatH * s > window.innerHeight) ? 'auto' : 'hidden';
+}
+window.addEventListener('resize', fitToScreen);
+fitToScreen();
 </script>
+</div><!-- #wrap -->
 </body>
 </html>

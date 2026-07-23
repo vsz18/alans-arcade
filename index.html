@@ -328,7 +328,7 @@
 
     .games-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(190px, 44%), 1fr));
       gap: 22px;
       max-width: 920px;
       width: 100%;
@@ -685,11 +685,134 @@
     }
 
     /* ─── Responsive ─────────────────────────── */
-    @media (max-width: 500px) {
-      .arcade-box { padding: 24px 18px; }
-      .bday-age-badge { width: 100px; height: 100px; line-height: 92px; font-size: 1.8rem; }
-      .games-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+
+    /* Prevent double-tap zoom on all buttons */
+    button { touch-action: manipulation; }
+
+    /* Play buttons: comfortable tap target at all sizes */
+    .pg-btn { min-height: 40px; }
+    .game-ui-btn { min-height: 38px; }
+
+    @media (max-width: 600px) {
+      /* Games top bar: hide score in middle, it overflows narrow screens */
+      .games-top-bar span:nth-child(2) { display: none; }
+      .games-top-bar { font-size: .36rem; }
+
+      /* Iframe game topbars: drop the hint text ("ARROWS / WASD TO MOVE") */
+      #noodle-topbar span:last-child,
+      #dumpling-topbar span:last-child,
+      #well-topbar span:last-child { display: none; }
     }
+
+    @media (max-width: 480px) {
+      /* ── Entry screen ── */
+      .arcade-box { padding: 22px 16px; }
+      .age-label { font-size: .65rem; }
+      input[type="date"]#birthdate { font-size: .55rem; padding: 10px 8px; }
+      .enter-btn { font-size: .65rem; }
+      .insert-coin { font-size: .45rem; margin-top: 24px; }
+
+      /* ── Birthday screen ── */
+      #birthday-screen { padding: 28px 16px; }
+      .bday-age-badge { width: 100px; height: 100px; line-height: 90px; font-size: 1.8rem; }
+      .bday-sub { font-size: .52rem; margin-bottom: 26px; }
+      .start-btn { padding: 14px 24px; font-size: .65rem; }
+
+      /* ── Games screen ── */
+      #games-screen { padding: 52px 12px 32px; }
+      .games-sub { margin-bottom: 20px; }
+      .games-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+      .game-card { padding: 14px 10px 12px; }
+      .gi { font-size: 1.9rem; margin-bottom: 8px; }
+      .gn { font-size: .43rem; }
+      .gy { font-size: .31rem; margin-bottom: 10px; }
+      .pg-btn { font-size: .38rem; padding: 10px 0; }
+      .games-footer { margin-top: 28px; font-size: .33rem; }
+
+      /* ── Birthday Bash HUD ── */
+      #game-hud { padding: 4px 8px; flex-wrap: wrap; gap: 4px; }
+      .hud-sp-bar { width: 44px; }
+      .hud-label { font-size: .27rem; }
+      #hud-lives { font-size: .5rem; }
+      #hud-hp { font-size: .44rem; }
+      #hud-wave, #hud-score { font-size: .35rem; }
+      #hud-hi { font-size: .42rem; }
+
+      /* ── Iframe game topbars ── */
+      #noodle-topbar,
+      #dumpling-topbar,
+      #well-topbar { padding: 8px 10px; }
+      #noodle-topbar span:nth-child(2),
+      #dumpling-topbar span:nth-child(2),
+      #well-topbar span:nth-child(2) { font-size: .42rem; }
+      .game-ui-btn { padding: 9px 12px; font-size: .38rem; }
+    }
+
+    @media (max-width: 360px) {
+      .games-grid { gap: 8px; }
+      .game-card { padding: 12px 8px 10px; }
+      .gi { font-size: 1.6rem; }
+      .gn { font-size: .4rem; }
+      .pg-btn { font-size: .35rem; }
+    }
+
+    /* ─── Virtual D-pad (Birthday Bash, touch only) ─ */
+    #touch-controls {
+      display: none;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      max-width: 620px;
+      padding: 10px 20px;
+      margin-top: 4px;
+      gap: 12px;
+    }
+    @media (pointer: coarse) {
+      #touch-controls { display: flex; }
+      #game-controls  { display: none; }
+    }
+    .tc-dpad {
+      display: grid;
+      grid-template-rows: auto auto auto;
+      gap: 3px;
+      align-items: center;
+      justify-items: center;
+    }
+    .tc-row { display: flex; gap: 3px; align-items: center; }
+    .tc-mid { width: 50px; height: 50px; }
+    .tc-btn {
+      width: 50px; height: 50px;
+      background: rgba(255,215,0,0.12);
+      border: 2px solid #ffd700;
+      color: #ffd700;
+      font-size: 1.3rem;
+      cursor: pointer;
+      font-family: inherit;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .tc-btn:active { background: rgba(255,215,0,0.35); }
+    .tc-actions { display: flex; flex-direction: column; gap: 8px; }
+    .tc-act {
+      padding: 12px 16px;
+      font-family: 'Press Start 2P', cursive;
+      font-size: .42rem;
+      border: 2px solid;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      min-width: 90px;
+    }
+    .tc-act:active { opacity: 0.6; }
+    .tc-punch { background: rgba(255,48,48,.15); border-color:#ff3030; color:#ff3030; }
+    .tc-kick  { background: rgba(50,80,255,.15);  border-color:#3355ff; color:#5577ff; }
+    .tc-blast { background: rgba(255,16,240,.15); border-color:#ff10f0; color:#ff10f0; }
   </style>
 </head>
 <body>
@@ -871,7 +994,7 @@
   <div id="well-topbar">
     <button class="game-ui-btn" onclick="exitWishingWell()">← BACK</button>
     <span>🕯️ WISHING WELL</span>
-    <span style="font-size:.38rem;color:#555;">MOUSE / ARROWS TO MOVE</span>
+    <span style="font-size:.38rem;color:#555;">TOUCH / MOUSE TO MOVE</span>
   </div>
   <iframe id="well-frame" src="" frameborder="0"></iframe>
 </div>
@@ -922,6 +1045,22 @@
       <button class="game-ui-btn" onclick="exitBirthdayBash()">← BACK</button>
     </div>
     <div id="game-controls">MOVE: ARROWS &nbsp;|&nbsp; Z: PUNCH &nbsp;|&nbsp; X: KICK &nbsp;|&nbsp; SPACE: BLAST &nbsp;|&nbsp; P: PAUSE</div>
+    <div id="touch-controls">
+      <div class="tc-dpad">
+        <button class="tc-btn" id="tc-up">▲</button>
+        <div class="tc-row">
+          <button class="tc-btn" id="tc-left">◀</button>
+          <div class="tc-mid"></div>
+          <button class="tc-btn" id="tc-right">▶</button>
+        </div>
+        <button class="tc-btn" id="tc-down">▼</button>
+      </div>
+      <div class="tc-actions">
+        <button class="tc-act tc-punch" id="tc-punch">PUNCH</button>
+        <button class="tc-act tc-kick"  id="tc-kick">KICK</button>
+        <button class="tc-act tc-blast" id="tc-blast">BLAST</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -954,6 +1093,9 @@
     c.appendChild(s);
   }
 })();
+
+/* ─── History init ───────────────────────── */
+history.replaceState({ screen: 'entry-screen' }, '', '');
 
 /* ─── Session persistence ────────────────── */
 const SESSION_KEY = 'bday-arcade-access';
@@ -1012,6 +1154,7 @@ function showGames() {
 function switchScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  history.pushState({ screen: id }, '', '');
 }
 
 /* ─── Confetti ───────────────────────────── */
@@ -1779,7 +1922,7 @@ function exitBirthdayBash(){
   stopMusic();
   document.removeEventListener('keydown',gdKeyDown);
   document.removeEventListener('keyup',gdKeyUp);
-  switchScreen('games-screen');
+  history.back();
 }
 
 /* ─── Wishing Well ──────────────────────── */
@@ -1792,7 +1935,7 @@ function startWishingWell() {
 
 function exitWishingWell() {
   document.getElementById('well-frame').src = '';
-  switchScreen('games-screen');
+  history.back();
 }
 
 /* ─── Longevity Noodle ───────────────────── */
@@ -1805,7 +1948,7 @@ function startNoodle() {
 
 function exitNoodle() {
   document.getElementById('noodle-frame').src = '';
-  switchScreen('games-screen');
+  history.back();
 }
 
 /* ─── Dumpling Dash ──────────────────────── */
@@ -1818,7 +1961,7 @@ function startDumpling() {
 
 function exitDumpling() {
   document.getElementById('dumpling-frame').src = '';
-  switchScreen('games-screen');
+  history.back();
 }
 
 /* ─── iframe message bridge ─────────────── */
@@ -1828,6 +1971,31 @@ window.addEventListener('message', e => {
   if (e.data === 'exitWishingWell')  exitWishingWell();
 });
 
+/* ─── Browser back button ────────────────── */
+window.addEventListener('popstate', e => {
+  const id = (e.state && e.state.screen) || 'entry-screen';
+
+  // Clean up whichever game is currently active
+  if (document.getElementById('dumpling-screen').classList.contains('active'))
+    document.getElementById('dumpling-frame').src = '';
+  if (document.getElementById('noodle-screen').classList.contains('active'))
+    document.getElementById('noodle-frame').src = '';
+  if (document.getElementById('well-screen').classList.contains('active'))
+    document.getElementById('well-frame').src = '';
+  if (document.getElementById('game-screen').classList.contains('active')) {
+    cancelAnimationFrame(gameRaf);
+    stopMusic();
+    document.removeEventListener('keydown', gdKeyDown);
+    document.removeEventListener('keyup', gdKeyUp);
+  }
+  if (document.getElementById('birthday-screen').classList.contains('active'))
+    stopConfetti();
+
+  // Switch without pushing a new history entry
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+});
+
 /* ─── Keyboard shortcuts ─────────────────── */
 document.getElementById('birthdate').addEventListener('keydown', e => {
   if (e.key === 'Enter') checkBirthdate();
@@ -1835,6 +2003,58 @@ document.getElementById('birthdate').addEventListener('keydown', e => {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
 });
+
+/* ─── Virtual D-pad for Birthday Bash ───── */
+(function () {
+  const dirs = [
+    ['tc-up',    'ArrowUp'],
+    ['tc-down',  'ArrowDown'],
+    ['tc-left',  'ArrowLeft'],
+    ['tc-right', 'ArrowRight'],
+  ];
+  dirs.forEach(([id, code]) => {
+    const btn = document.getElementById(id);
+    btn.addEventListener('touchstart', e => {
+      e.preventDefault();
+      if (gs) gs.keys[code] = true;
+    }, { passive: false });
+    btn.addEventListener('touchend', e => {
+      e.preventDefault();
+      if (gs) gs.keys[code] = false;
+    }, { passive: false });
+    btn.addEventListener('touchcancel', () => { if (gs) gs.keys[code] = false; });
+  });
+
+  document.getElementById('tc-punch').addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (!gs || gs.paused) return;
+    const p = gs.player;
+    if (p.state === 'idle' || p.state === 'walk') {
+      p.state = 'punch'; p.stateT = 22; beep(420, 0.06, 'square', 0.18);
+    }
+  }, { passive: false });
+
+  document.getElementById('tc-kick').addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (!gs || gs.paused) return;
+    const p = gs.player;
+    if (p.state === 'idle' || p.state === 'walk') {
+      p.state = 'kick'; p.stateT = 30; beep(280, 0.08, 'square', 0.18);
+    }
+  }, { passive: false });
+
+  document.getElementById('tc-blast').addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (!gs || gs.paused) return;
+    const p = gs.player;
+    if (p.sp >= 50 && (p.state === 'idle' || p.state === 'walk')) {
+      p.state = 'special'; p.stateT = 50; p.sp -= 50;
+      gs.projs.push(new Proj(p.x + p.facing * 20, p.y - p.h * 0.55, p.facing * 9, 0, true));
+      beep(880, 0.4, 'sine', 0.3);
+      gs.ftexts.push(new FText(p.x, p.y - p.h - 8, 'BIRTHDAY BLAST!', '#ff10f0', 8));
+    }
+  }, { passive: false });
+})();
 </script>
 </body>
 </html>
