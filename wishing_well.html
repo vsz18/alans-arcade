@@ -846,6 +846,11 @@ function loop() {
 
 // ── Boot ─────────────────────────────────────────────────────────────
 (function boot() {
+  // Outer shell provides its own back button; hide the duplicate inside the iframe
+  if (window.parent !== window) {
+    document.querySelector('button[onclick="goBack()"]').style.display = 'none';
+  }
+
   document.getElementById('best').textContent = loadBest();
   bricks = makeBricks(LEVELS[0]);
   paddle.x = W / 2 - PADDLE_DEF_W / 2;

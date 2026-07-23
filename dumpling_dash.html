@@ -113,6 +113,9 @@ const T = [
   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
 ];
 
+const LOW_PERF = window.matchMedia('(pointer: coarse)').matches;
+const FRAME_DUR = LOW_PERF ? 1000 / 30 : 0; // 0 = uncapped on desktop
+
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 canvas.width  = COLS * CELL;
@@ -270,13 +273,13 @@ function movePac() {
       map[r][c] = 3;
       score += 10;
       dotsLeft--;
-      dotsDirty = true;
+      // Clear just this one cell — avoids re-rendering all 150 dots
+      if (dotCanvas) dotCanvas.getContext('2d').clearRect(c * CELL, r * CELL, CELL, CELL);
       updateHUD();
     } else if (map[r][c] === 2) {
       map[r][c] = 3;
       score += 50;
       dotsLeft--;
-      dotsDirty = true;
       powerTimer = POWER_FRAMES;
       updateHUD();
     }
@@ -608,7 +611,11 @@ function drawPauseOverlay() {
 }
 
 // ── Main loop ──────────────────────────────────────────────────────────────
-function loop() {
+let _lastFrameTime = 0;
+function loop(ts) {
+  requestAnimationFrame(loop);
+  if (FRAME_DUR > 0 && ts - _lastFrameTime < FRAME_DUR) return;
+  _lastFrameTime = ts;
   animFrame++;
   drawMaze();
 
@@ -617,7 +624,6 @@ function loop() {
     ghosts.forEach(drawGhost);
     drawPowerBar();
     drawPauseOverlay();
-    requestAnimationFrame(loop);
     return;
   }
 
@@ -664,8 +670,6 @@ function loop() {
   drawPac();
   ghosts.forEach(drawGhost);
   drawPowerBar();
-
-  requestAnimationFrame(loop);
 }
 
 function showOverlay(title, subtitle, btn) {
@@ -721,11 +725,14 @@ canvas.addEventListener('touchend', e => {
 }, { passive: false });
 
 // ── Boot ───────────────────────────────────────────────────────────────────
+if (window.parent !== window) {
+  document.querySelector('button[onclick="goBack()"]').style.display = 'none';
+}
 state = 'idle';
 score = 0; lives = 3; level = 1;
 resetMap(); resetPac(); resetGhosts();
 document.getElementById('startBtn').addEventListener('click', startGame);
-loop();
+requestAnimationFrame(loop);
 
 // ── Fit to screen ──────────────────────────────────────────────────────────
 let naturalH = 0;

@@ -759,6 +759,18 @@
       .pg-btn { font-size: .35rem; }
     }
 
+    /* ─── Touch: bigger topbar buttons ─────────────── */
+    @media (pointer: coarse) {
+      .game-ui-btn {
+        font-size: .55rem !important;
+        padding: 11px 16px !important;
+        min-height: 48px;
+      }
+      #noodle-topbar, #dumpling-topbar, #well-topbar {
+        padding: 8px 14px;
+      }
+    }
+
     /* ─── Virtual D-pad (Birthday Bash, touch only) ─ */
     #touch-controls {
       display: none;
