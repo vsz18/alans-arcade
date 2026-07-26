@@ -62,7 +62,10 @@
 <div id="topbar">
   <button class="tb-btn" onclick="goBack()">← BACK</button>
   <span id="topbar-title">🥟 DUMPLING DASH</span>
-  <button class="tb-btn" id="pauseBtn" onclick="togglePause()">⏸ PAUSE</button>
+  <div style="display:flex;gap:6px">
+    <button class="tb-btn" id="musicBtn" onclick="toggleMusic()">♪ ON</button>
+    <button class="tb-btn" id="pauseBtn" onclick="togglePause()">⏸ PAUSE</button>
+  </div>
 </div>
 <div id="hud">
   <span>SCORE: <span id="score">0</span></span>
@@ -133,6 +136,60 @@ let animFrame = 0;
 
 let wallCanvas = null, dotCanvas = null, dotsDirty = true;
 
+// ── Music ──────────────────────────────────────────────────────────────────
+let _mAC = null, _mTimer = null, _mIdx = 0, musicOn = true;
+
+// Chiptune "Happy Birthday" — plays on loop during gameplay
+const MUSIC_SEQ = [
+  [392,200],[392,100],[440,300],[392,300],[523,300],[494,600],[0,180],
+  [392,200],[392,100],[440,300],[392,300],[587,300],[523,600],[0,180],
+  [392,200],[392,100],[784,300],[659,300],[523,300],[494,300],[440,600],[0,180],
+  [698,200],[698,100],[659,300],[523,300],[587,300],[523,700],[0,400],
+];
+
+function _mNote(freq, durMs) {
+  if (!freq) return;
+  try {
+    if (!_mAC) _mAC = new (window.AudioContext || window.webkitAudioContext)();
+    if (_mAC.state === 'suspended') _mAC.resume();
+    const o = _mAC.createOscillator(), g = _mAC.createGain();
+    o.connect(g); g.connect(_mAC.destination);
+    o.type = 'triangle';
+    o.frequency.value = freq;
+    const t = _mAC.currentTime;
+    g.gain.setValueAtTime(0.07, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + durMs / 1000 * 0.88);
+    o.start(t); o.stop(t + durMs / 1000);
+  } catch(e) {}
+}
+
+function _mAdvance() {
+  if (!musicOn || state !== 'playing') return;
+  const [freq, dur] = MUSIC_SEQ[_mIdx];
+  _mNote(freq, dur);
+  _mIdx = (_mIdx + 1) % MUSIC_SEQ.length;
+  _mTimer = setTimeout(_mAdvance, dur);
+}
+
+function startMusic() {
+  stopMusic();
+  if (!musicOn) return;
+  _mIdx = 0;
+  _mAdvance();
+}
+
+function stopMusic() {
+  clearTimeout(_mTimer);
+  _mTimer = null;
+}
+
+function toggleMusic() {
+  musicOn = !musicOn;
+  document.getElementById('musicBtn').textContent = musicOn ? '♪ ON' : '♪ OFF';
+  if (!musicOn) stopMusic();
+  else if (state === 'playing') startMusic();
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────
 function countDots(m) {
   let n = 0;
@@ -191,6 +248,7 @@ function startGame() {
   resetGhosts();
   state = 'playing';
   document.getElementById('overlay').style.display = 'none';
+  startMusic();
 }
 
 // ── HUD ────────────────────────────────────────────────────────────────────
@@ -579,6 +637,7 @@ function drawPowerBar() {
 
 // ── Back / Pause ───────────────────────────────────────────────────────────
 function goBack() {
+  stopMusic();
   if (window.parent !== window) {
     window.parent.postMessage('exitDumpling', '*');
   } else {
@@ -589,9 +648,11 @@ function goBack() {
 function togglePause() {
   if (state === 'playing') {
     state = 'paused';
+    stopMusic();
     document.getElementById('pauseBtn').textContent = '▶ RESUME';
   } else if (state === 'paused') {
     state = 'playing';
+    startMusic();
     document.getElementById('pauseBtn').textContent = '⏸ PAUSE';
   }
 }
