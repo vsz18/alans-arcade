@@ -147,20 +147,55 @@ const MUSIC_SEQ = [
   [698,200],[698,100],[659,300],[523,300],[587,300],[523,700],[0,400],
 ];
 
+document.addEventListener('touchstart', function unlock() {
+  if (!_mAC) _mAC = new (window.AudioContext || window.webkitAudioContext)();
+  _mAC.resume();
+  document.removeEventListener('touchstart', unlock);
+}, { once: true, passive: true });
+
+function _getAC() {
+  if (!_mAC) _mAC = new (window.AudioContext || window.webkitAudioContext)();
+  return _mAC;
+}
+function _withAC(fn) {
+  try {
+    const ac = _getAC();
+    ac.state === 'suspended' ? ac.resume().then(() => fn(ac)) : fn(ac);
+  } catch(e) {}
+}
 function _mNote(freq, durMs) {
   if (!freq) return;
-  try {
-    if (!_mAC) _mAC = new (window.AudioContext || window.webkitAudioContext)();
-    if (_mAC.state === 'suspended') _mAC.resume();
-    const o = _mAC.createOscillator(), g = _mAC.createGain();
-    o.connect(g); g.connect(_mAC.destination);
-    o.type = 'triangle';
-    o.frequency.value = freq;
-    const t = _mAC.currentTime;
+  _withAC(ac => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = 'triangle'; o.frequency.value = freq;
+    const t = ac.currentTime;
     g.gain.setValueAtTime(0.07, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + durMs / 1000 * 0.88);
     o.start(t); o.stop(t + durMs / 1000);
-  } catch(e) {}
+  });
+}
+function dotSound() {
+  _withAC(ac => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = 'square'; o.frequency.value = 523 + (_mIdx % 2) * 130;
+    g.gain.setValueAtTime(0.06, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.055);
+    o.start(ac.currentTime); o.stop(ac.currentTime + 0.06);
+  });
+}
+function pelletSound() {
+  _withAC(ac => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = 'square';
+    o.frequency.setValueAtTime(300, ac.currentTime);
+    o.frequency.linearRampToValueAtTime(700, ac.currentTime + 0.15);
+    g.gain.setValueAtTime(0.1, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.15);
+    o.start(ac.currentTime); o.stop(ac.currentTime + 0.17);
+  });
 }
 
 function _mAdvance() {
@@ -332,14 +367,15 @@ function movePac() {
       map[r][c] = 3;
       score += 10;
       dotsLeft--;
-      // Clear just this one cell — avoids re-rendering all 150 dots
       if (dotCanvas) dotCanvas.getContext('2d').clearRect(c * CELL, r * CELL, CELL, CELL);
+      dotSound();
       updateHUD();
     } else if (map[r][c] === 2) {
       map[r][c] = 3;
       score += 50;
       dotsLeft--;
       powerTimer = POWER_FRAMES;
+      pelletSound();
       updateHUD();
     }
   }

@@ -157,16 +157,24 @@ function getAC() {
   if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
   return ac;
 }
+document.addEventListener('touchstart', function unlock() {
+  if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+  ac.resume();
+  document.removeEventListener('touchstart', unlock);
+}, { once: true, passive: true });
+
 function beep(freq, vol = 0.08, type = 'square', dur = 0.07) {
   try {
     const a = getAC();
-    const o = a.createOscillator();
-    const g = a.createGain();
-    o.connect(g); g.connect(a.destination);
-    o.type = type; o.frequency.value = freq;
-    g.gain.setValueAtTime(vol, a.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + dur);
-    o.start(a.currentTime); o.stop(a.currentTime + dur);
+    const play = () => {
+      const o = a.createOscillator(), g = a.createGain();
+      o.connect(g); g.connect(a.destination);
+      o.type = type; o.frequency.value = freq;
+      g.gain.setValueAtTime(vol, a.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + dur);
+      o.start(a.currentTime); o.stop(a.currentTime + dur);
+    };
+    a.state === 'suspended' ? a.resume().then(play) : play();
   } catch(e) {}
 }
 
