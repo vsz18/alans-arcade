@@ -135,6 +135,17 @@ let dotsLeft = 0;
 let animFrame = 0;
 
 let wallCanvas = null, dotCanvas = null, dotsDirty = true;
+let _pelletCanvas = null;
+function _getPelletCanvas() {
+  if (_pelletCanvas) return _pelletCanvas;
+  _pelletCanvas = document.createElement('canvas');
+  _pelletCanvas.width = _pelletCanvas.height = CELL * 2;
+  const pc = _pelletCanvas.getContext('2d');
+  pc.font = `${CELL * 1.6}px serif`;
+  pc.textAlign = 'center'; pc.textBaseline = 'middle';
+  pc.fillText('🥟', CELL, CELL);
+  return _pelletCanvas;
+}
 
 // ── Music ──────────────────────────────────────────────────────────────────
 let _mAC = null, _mTimer = null, _mIdx = 0, musicOn = true;
@@ -299,7 +310,8 @@ function row(y) { return Math.floor(y / CELL); }
 function cx(c)  { return c * CELL + CELL / 2; }
 function cy(r)  { return r * CELL + CELL / 2; }
 function isWall(c, r) {
-  if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return true;
+  if (r < 0 || r >= ROWS) return true;
+  if (c < 0 || c >= COLS) return r !== 10; // tunnel row (10) is passable off-screen
   const v = map[r][c];
   return v === 0 || v === 9; // 9 = ghost-house door, impassable for pac
 }
@@ -383,6 +395,15 @@ function movePac() {
 
 // ── Ghost movement ─────────────────────────────────────────────────────────
 const DIRS = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}];
+// Reusable pre-allocated array to avoid creating garbage on every ghost decision
+const _gDirs = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}];
+function _shuffleGhostDirs() {
+  for (let i = 3; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = _gDirs[i]; _gDirs[i] = _gDirs[j]; _gDirs[j] = t;
+  }
+  return _gDirs;
+}
 
 function ghostTarget(g) {
   if (powerTimer > 0 && !g.eaten) {
@@ -409,7 +430,7 @@ function moveGhost(g) {
     let bestDist = Infinity;
     let bestDir = null;
 
-    const shuffled = [...DIRS].sort(() => Math.random() - 0.5);
+    const shuffled = _shuffleGhostDirs();
 
     for (const d of shuffled) {
       const nc = gc + d.dx;
@@ -533,14 +554,14 @@ function drawMaze() {
   ctx.drawImage(wallCanvas, 0, 0);
   if (dotsDirty) redrawDotCanvas();
   ctx.drawImage(dotCanvas, 0, 0);
-  // Power dumplings: only 4 cells, animate each frame
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  // Power dumplings: pre-rendered to offscreen canvas, scaled via drawImage (much faster than per-frame emoji fillText)
+  const pelletImg = _getPelletCanvas();
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       if (map[r][c] === 2) {
         const pulse = 0.75 + 0.25 * Math.sin(animFrame * 0.1);
-        ctx.font = `${CELL * 0.85 * pulse}px serif`;
-        ctx.fillText('🥟', c * CELL + CELL / 2, r * CELL + CELL / 2);
+        const sz = CELL * 0.85 * pulse;
+        ctx.drawImage(pelletImg, c * CELL + (CELL - sz) / 2, r * CELL + (CELL - sz) / 2, sz, sz);
       }
     }
   }
@@ -647,12 +668,14 @@ function drawGhost(g) {
     ctx.beginPath(); ctx.arc(-r*0.32 + g.eyeDx*r*0.1, -r*0.25 + g.eyeDy*r*0.1, r*0.13, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc( r*0.32 + g.eyeDx*r*0.1, -r*0.25 + g.eyeDy*r*0.1, r*0.13, 0, Math.PI*2); ctx.fill();
 
-    // R&R label on ghost body
-    ctx.fillStyle = '#000';
-    ctx.font = `bold ${r * 0.55}px Arial Black, Arial`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(g.name, 0, r * 0.45);
+    // R&R label on ghost body (skip on mobile to save fillText cost)
+    if (!LOW_PERF) {
+      ctx.fillStyle = '#000';
+      ctx.font = `bold ${r * 0.55}px Arial Black, Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(g.name, 0, r * 0.45);
+    }
   }
 
   ctx.restore();
