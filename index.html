@@ -759,6 +759,70 @@
       .pg-btn { font-size: .35rem; }
     }
 
+    /* ─── Message Screen ────────────────────────────── */
+    #message-screen { padding: 30px 20px; text-align: center; }
+    .msg-inner {
+      max-width: 480px; width: 92%;
+      border: 3px solid var(--pink);
+      padding: 40px 32px;
+      background: rgba(0,0,20,.92);
+      box-shadow: 0 0 40px rgba(255,16,240,.35), inset 0 0 24px rgba(255,16,240,.05);
+      position: relative;
+    }
+    .msg-heart {
+      font-size: 3.8rem;
+      display: block;
+      margin-bottom: 18px;
+      animation: heartbeat 1.6s ease-in-out infinite;
+    }
+    @keyframes heartbeat {
+      0%,100% { transform: scale(1); }
+      14%     { transform: scale(1.22); }
+      28%     { transform: scale(1); }
+      42%     { transform: scale(1.12); }
+      70%     { transform: scale(1); }
+    }
+    .msg-from {
+      font-size: .42rem;
+      color: var(--pink);
+      text-shadow: 0 0 12px var(--pink);
+      letter-spacing: .18em;
+      margin-bottom: 28px;
+    }
+    .msg-body {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1.1rem;
+      color: #f2f2f2;
+      line-height: 1.85;
+      font-style: italic;
+      margin-bottom: 26px;
+    }
+    .msg-sig {
+      font-size: .5rem;
+      color: var(--yellow);
+      text-shadow: 0 0 10px var(--yellow);
+      margin-bottom: 32px;
+    }
+    .msg-play-btn {
+      background: var(--pink);
+      color: #000;
+      font-family: 'Press Start 2P', cursive;
+      font-size: .7rem;
+      padding: 14px 36px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 4px 4px 0 #660066;
+      transition: background .1s;
+      touch-action: manipulation;
+    }
+    .msg-play-btn:hover  { background: #ff55ff; }
+    .msg-play-btn:active { transform: translate(2px,2px); box-shadow: 2px 2px 0 #660066; }
+    @media (max-width: 480px) {
+      .msg-inner  { padding: 26px 18px; }
+      .msg-body   { font-size: .95rem; }
+      .msg-play-btn { font-size: .58rem; padding: 12px 24px; }
+    }
+
     /* ─── Touch: bigger topbar buttons ─────────────── */
     @media (pointer: coarse) {
       .game-ui-btn {
@@ -878,11 +942,26 @@
     GAME ON THE SCOREBOARD<br>
     OF LIFE ♥
   </div>
-  <button class="start-btn" onclick="showGames()">▶ PRESS START ◀</button>
+  <button class="start-btn" onclick="showMessage()">▶ PRESS START ◀</button>
 </div>
 
 <!-- ══════════════════════════════════════════
-     SCREEN 3 — GAMES
+     SCREEN 3 — MESSAGE
+════════════════════════════════════════════ -->
+<div id="message-screen" class="screen">
+  <div class="msg-inner">
+    <span class="msg-heart">💝</span>
+    <div class="msg-from">A NOTE FOR YOU, ALAN</div>
+    <p class="msg-body">
+      Happy Birthday to the love of my life. Thank you for always being my rock, bringing so much joy into our home, and making life brighter just by being in it. I love you!
+    </p>
+    <div class="msg-sig">— Victoria 💕</div>
+    <button class="msg-play-btn" onclick="showGames()">▶ LET'S PLAY</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 4 — GAMES
 ════════════════════════════════════════════ -->
 <div id="games-screen" class="screen">
   <div class="games-top-bar">
@@ -1106,6 +1185,56 @@
   }
 })();
 
+/* ─── UI Audio ───────────────────────────── */
+let _uiAC = null;
+function uiAC() {
+  if (!_uiAC) _uiAC = new (window.AudioContext || window.webkitAudioContext)();
+  if (_uiAC.state === 'suspended') _uiAC.resume();
+  return _uiAC;
+}
+
+function coinSound() {
+  try {
+    const ac = uiAC(), now = ac.currentTime;
+    [880, 1320].forEach((f, i) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.type = 'square'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.12, now + i * 0.06);
+      g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.06 + 0.18);
+      o.start(now + i * 0.06); o.stop(now + i * 0.06 + 0.25);
+    });
+  } catch(e) {}
+}
+
+/* ─── Birthday/Message screen music ─────── */
+let _bmTimer = null, _bmIdx = 0;
+const BM_SEQ = [
+  [392,220],[392,110],[440,330],[392,330],[523,330],[494,660],[0,220],
+  [392,220],[392,110],[440,330],[392,330],[587,330],[523,660],[0,220],
+  [392,220],[392,110],[784,330],[659,330],[523,330],[494,330],[440,660],[0,220],
+  [698,220],[698,110],[659,330],[523,330],[587,330],[523,760],[0,440],
+];
+function _bmAdvance() {
+  const [freq, dur] = BM_SEQ[_bmIdx];
+  if (freq) {
+    try {
+      const ac = uiAC();
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.type = 'triangle'; o.frequency.value = freq;
+      const t = ac.currentTime;
+      g.gain.setValueAtTime(0.07, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur / 1000 * 0.85);
+      o.start(t); o.stop(t + dur / 1000);
+    } catch(e) {}
+  }
+  _bmIdx = (_bmIdx + 1) % BM_SEQ.length;
+  _bmTimer = setTimeout(_bmAdvance, dur);
+}
+function startBdayMusic() { stopBdayMusic(); _bmIdx = 0; _bmAdvance(); }
+function stopBdayMusic()  { clearTimeout(_bmTimer); _bmTimer = null; }
+
 /* ─── History init ───────────────────────── */
 history.replaceState({ screen: 'entry-screen' }, '', '');
 
@@ -1119,6 +1248,7 @@ const SESSION_KEY = 'bday-arcade-access';
 
 /* ─── Entry logic ────────────────────────── */
 function checkBirthdate() {
+  coinSound();
   const val = document.getElementById('birthdate').value;
   const err = document.getElementById('error-msg');
   err.style.display = 'none';
@@ -1156,14 +1286,24 @@ function showError() {
 function showBirthdayScreen() {
   switchScreen('birthday-screen');
   startConfetti();
+  startBdayMusic();
+}
+
+function showMessage() {
+  stopConfetti();
+  switchScreen('message-screen');
+  // music keeps playing from birthday screen
 }
 
 function showGames() {
   stopConfetti();
+  stopBdayMusic();
   switchScreen('games-screen');
 }
 
 function switchScreen(id) {
+  const GAME_SCREENS = ['game-screen','noodle-screen','dumpling-screen','well-screen'];
+  document.querySelector('.marquee-strip').style.display = GAME_SCREENS.includes(id) ? 'none' : '';
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   history.pushState({ screen: id }, '', '');
@@ -2002,6 +2142,17 @@ window.addEventListener('popstate', e => {
   }
   if (document.getElementById('birthday-screen').classList.contains('active'))
     stopConfetti();
+
+  // Stop birthday music when leaving birthday/message screens
+  if (id === 'entry-screen' || id === 'games-screen') stopBdayMusic();
+  // Restart music + confetti when navigating back to birthday screen
+  if (id === 'birthday-screen') { startConfetti(); if (!_bmTimer) startBdayMusic(); }
+  // Restart music when navigating back to message screen
+  if (id === 'message-screen' && !_bmTimer) startBdayMusic();
+
+  // Show/hide marquee depending on destination
+  const GAME_SCREENS = ['game-screen','noodle-screen','dumpling-screen','well-screen'];
+  document.querySelector('.marquee-strip').style.display = GAME_SCREENS.includes(id) ? 'none' : '';
 
   // Switch without pushing a new history entry
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
