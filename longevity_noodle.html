@@ -70,7 +70,10 @@
 <div id="topbar">
   <button class="tb-btn" onclick="goBack()">← BACK</button>
   <span id="topbar-title">长寿面 · LONGEVITY NOODLE</span>
-  <button class="tb-btn" id="pauseBtn" onclick="togglePause()">⏸ PAUSE</button>
+  <div style="display:flex;gap:6px">
+    <button class="tb-btn" id="musicBtn" onclick="toggleMusic()">♪ ON</button>
+    <button class="tb-btn" id="pauseBtn" onclick="togglePause()">⏸ PAUSE</button>
+  </div>
 </div>
 <div id="hud">
   <span>SCORE: <span id="score">0</span></span>
@@ -140,6 +143,7 @@ function startGame() {
   spawnFood(); updateHUD();
   if (moveTimer) clearInterval(moveTimer);
   moveTimer = setInterval(step, moveInterval);
+  startMusic();
 }
 
 // ── Food ───────────────────────────────────────────────────────────────────
@@ -168,6 +172,7 @@ function step() {
   snake.unshift({ x: nx, y: ny });
 
   if (food && nx === food.x && ny === food.y) {
+    eatSound(food.pts);
     score += food.pts;
     foodEaten++;
     saveHi(score);
@@ -187,6 +192,7 @@ function die() {
   state = 'dead';
   deathFrame = 0;
   clearInterval(moveTimer);
+  stopMusic();
   saveHi(score);
   updateHUD();
 }
@@ -392,8 +398,62 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
+// ── Music ──────────────────────────────────────────────────────────────────
+let _mAC = null, _mTimer = null, _mIdx = 0, musicOn = true;
+const MUSIC_SEQ = [
+  [392,150],[440,150],[523,300],[440,150],[392,150],[330,300],[294,150],[330,150],[0,150],
+  [392,150],[440,150],[523,150],[587,150],[523,300],[440,150],[392,300],[0,300],
+  [330,150],[392,150],[440,150],[523,150],[440,300],[392,150],[330,150],[294,300],[0,150],
+  [330,150],[294,150],[262,300],[294,150],[262,450],[0,400],
+];
+function _mNote(freq, durMs) {
+  try {
+    if (!_mAC) _mAC = new (window.AudioContext || window.webkitAudioContext)();
+    if (_mAC.state === 'suspended') _mAC.resume();
+    const o = _mAC.createOscillator(), g = _mAC.createGain();
+    o.connect(g); g.connect(_mAC.destination);
+    o.type = 'triangle'; o.frequency.value = freq;
+    const t = _mAC.currentTime;
+    g.gain.setValueAtTime(0.07, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + durMs / 1000 * 0.85);
+    o.start(t); o.stop(t + durMs / 1000);
+  } catch(e) {}
+}
+function _mAdvance() {
+  if (!musicOn || state !== 'playing') return;
+  const [freq, dur] = MUSIC_SEQ[_mIdx];
+  if (freq) _mNote(freq, dur);
+  _mIdx = (_mIdx + 1) % MUSIC_SEQ.length;
+  _mTimer = setTimeout(_mAdvance, dur);
+}
+function eatSound(pts) {
+  try {
+    if (!_mAC) _mAC = new (window.AudioContext || window.webkitAudioContext)();
+    if (_mAC.state === 'suspended') _mAC.resume();
+    // pitch scales with food value: 10→523, 30→659, 50→784, 100→ arpeggio
+    const freqs = pts >= 100 ? [523,659,784,1047] : pts >= 50 ? [784] : pts >= 30 ? [659] : [523];
+    freqs.forEach((f, i) => {
+      const o = _mAC.createOscillator(), g = _mAC.createGain();
+      o.connect(g); g.connect(_mAC.destination);
+      o.type = 'square'; o.frequency.value = f;
+      const t = _mAC.currentTime + i * 0.07;
+      g.gain.setValueAtTime(0.1, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      o.start(t); o.stop(t + 0.14);
+    });
+  } catch(e) {}
+}
+function startMusic() { stopMusic(); if (!musicOn) return; _mIdx = 0; _mAdvance(); }
+function stopMusic()  { clearTimeout(_mTimer); _mTimer = null; }
+function toggleMusic() {
+  musicOn = !musicOn;
+  document.getElementById('musicBtn').textContent = musicOn ? '♪ ON' : '♪ OFF';
+  if (musicOn && state === 'playing') startMusic(); else stopMusic();
+}
+
 // ── Back / Pause ───────────────────────────────────────────────────────────
 function goBack() {
+  stopMusic();
   if (moveTimer) clearInterval(moveTimer);
   if (window.parent !== window) {
     window.parent.postMessage('exitNoodle', '*');
@@ -406,10 +466,12 @@ function togglePause() {
   if (state === 'playing') {
     state = 'paused';
     clearInterval(moveTimer);
+    stopMusic();
     document.getElementById('pauseBtn').textContent = '▶ RESUME';
   } else if (state === 'paused') {
     state = 'playing';
     moveTimer = setInterval(step, moveInterval);
+    startMusic();
     document.getElementById('pauseBtn').textContent = '⏸ PAUSE';
   }
 }

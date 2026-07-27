@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atom Smasher</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #000510; }
+  body {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-start;
+    font-family: 'Arial Black', Arial, sans-serif;
+    color: #fff; user-select: none;
+  }
+  #wrap { display: flex; flex-direction: column; align-items: center; transform-origin: top center; }
+  #topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    width: 520px; max-width: 100%; padding: 5px 0; margin-bottom: 2px;
+  }
+  .tb-btn {
+    background: #000510; color: #00e5ff; border: 2px solid #005577;
+    font-family: inherit; font-size: 0.7rem; font-weight: bold;
+    padding: 5px 12px; cursor: pointer; letter-spacing: 1px;
+  }
+  .tb-btn:hover { background: #001122; }
+  #topbar-title { color: #00e5ff; font-size: 0.78rem; letter-spacing: 2px; text-shadow: 0 0 10px rgba(0,229,255,.5); }
+  #hud {
+    display: flex; gap: 20px; padding: 3px 0;
+    font-size: 0.82rem; color: #00e5ff;
+    width: 520px; max-width: 100%; justify-content: center;
+  }
+  #canvas-wrap { position: relative; }
+  canvas { display: block; cursor: crosshair; }
+  #overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: rgba(0,5,16,.9); gap: 10px;
+  }
+  #overlay h1 { font-size: 1.9rem; color: #00e5ff; text-shadow: 0 0 20px rgba(0,229,255,.8); letter-spacing: 3px; }
+  #overlay h2 { font-size: 1.3rem; color: #ff6622; }
+  #overlay p  { font-size: 0.78rem; color: #aaa; line-height: 2; text-align: center; }
+  .legend { display: flex; gap: 20px; align-items: center; margin: 4px 0; }
+  .leg-atom { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: bold; }
+  .leg-d { background: radial-gradient(#88bbff, #4488ff); color: #fff; }
+  .leg-t { background: radial-gradient(#ffaa66, #ff6622); color: #fff; }
+  #overlay .start-btn {
+    margin-top: 6px; padding: 10px 30px;
+    font-size: 1rem; font-family: inherit;
+    background: #00e5ff; color: #000510; border: none;
+    cursor: pointer; font-weight: bold; letter-spacing: 1px;
+  }
+  #overlay .start-btn:hover { background: #55f0ff; }
+  /* Mobile controls */
+  #mobile-controls {
+    display: none; justify-content: space-between; align-items: center;
+    width: 520px; max-width: 100%; padding: 8px 20px;
+  }
+  @media (pointer: coarse) {
+    #mobile-controls { display: flex; }
+    footer { display: none; }
+    .tb-btn { font-size: .6rem !important; padding: 8px 10px !important; min-height: 40px; }
+  }
+  .dpad { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 3px; width: 116px; height: 116px; }
+  .dp-btn {
+    background: #001a2e; border: 2px solid #005577; color: #00e5ff;
+    font-size: 1.1rem; font-weight: bold; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; touch-action: none;
+  }
+  .dp-btn:active { background: #003344; }
+  #btn-fire {
+    background: #00e5ff; color: #000510; border: none;
+    font-family: inherit; font-size: 0.95rem; font-weight: bold;
+    width: 96px; height: 96px; border-radius: 50%; cursor: pointer;
+    letter-spacing: 1px; touch-action: none;
+    box-shadow: 0 0 16px rgba(0,229,255,.5);
+  }
+  #btn-fire:active { background: #55f0ff; transform: scale(.96); }
+  footer { font-size: 0.72rem; color: #112233; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+
+<div id="topbar">
+  <button class="tb-btn" onclick="goBack()">← BACK</button>
+  <span id="topbar-title">⚛️ ATOM SMASHER</span>
+  <div style="display:flex;gap:6px">
+    <button class="tb-btn" id="musicBtn" onclick="toggleMusic()">♪ ON</button>
+  </div>
+</div>
+
+<div id="hud">
+  <span>SCORE: <b id="hud-score">0</b></span>
+  <span>WAVE: <b id="hud-wave">1</b></span>
+  <span>HP: <b id="hud-hp">♥♥♥</b></span>
+  <span>BEST: <b id="hud-best">0</b></span>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="canvas"></canvas>
+  <div id="overlay">
+    <h1>⚛️ ATOM SMASHER</h1>
+    <div class="legend">
+      <div class="leg-atom leg-d">²H</div><span style="color:#88bbff;font-size:.8rem">DEUTERIUM</span>
+      <span style="color:#555">+</span>
+      <div class="leg-atom leg-t">³H</div><span style="color:#ffaa66;font-size:.8rem">TRITIUM</span>
+      <span style="color:#00e5ff;font-size:.9rem">= ⚡ FUSION</span>
+    </div>
+    <p>Shoot atoms to charge them.<br>Collide a ²H + ³H for nuclear fusion!<br>Avoid neutrons and atom impacts.</p>
+    <button class="start-btn" id="startBtn">▶ START</button>
+  </div>
+</div>
+
+<div id="mobile-controls">
+  <div class="dpad">
+    <div></div><button class="dp-btn" id="btn-up">▲</button><div></div>
+    <button class="dp-btn" id="btn-left">◀</button><div></div><button class="dp-btn" id="btn-right">▶</button>
+    <div></div><button class="dp-btn" id="btn-down">▼</button><div></div>
+  </div>
+  <button id="btn-fire">FIRE</button>
+</div>
+
+<footer>WASD / ARROWS to move &nbsp;·&nbsp; MOUSE to aim &nbsp;·&nbsp; CLICK or SPACE to fire</footer>
+</div><!-- #wrap -->
+
+<script>
+const HS_KEY   = 'atom-smasher-hi';
+const LOW_PERF = window.matchMedia('(pointer: coarse)').matches;
+
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+const W = 520, H = 460;
+canvas.width = W; canvas.height = H;
+
+// ── Constants ──────────────────────────────────────────────────────────────
+const ATOM_R      = 17;
+const PLAYER_R    = 10;
+const SHOT_SPEED  = 420;
+const SHOT_LIFE   = 850;   // ms
+const NEUTRON_SPD = 260;
+const NEUTRON_LIFE= 2400;  // ms
+const CHARGE_LIFE = 2600;  // ms before charge expires
+const ATOM_MAX_SPD= 240;
+
+// ── State ──────────────────────────────────────────────────────────────────
+let player, atoms, shots, neutrons, particles, floats, fusionFlashes;
+let score, wave, state, lastTime, shootCooldown;
+let keys = {}, mouseX = W / 2, mouseY = H / 2;
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function loadHi()  { return parseInt(localStorage.getItem(HS_KEY) || '0', 10); }
+function saveHi(s) { if (s > loadHi()) localStorage.setItem(HS_KEY, s); }
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+function updateHUD() {
+  document.getElementById('hud-score').textContent = score;
+  document.getElementById('hud-wave').textContent  = wave;
+  document.getElementById('hud-hp').textContent    = '♥'.repeat(Math.max(0, player.hp));
+  document.getElementById('hud-best').textContent  = loadHi();
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+function startGame() {
+  player = { x: W / 2, y: H / 2, vx: 0, vy: 0, angle: 0, hp: 3, inv: 0 };
+  atoms = []; shots = []; neutrons = []; particles = []; floats = []; fusionFlashes = [];
+  score = 0; wave = 1; shootCooldown = 0;
+  state = 'playing';
+  document.getElementById('overlay').style.display = 'none';
+  spawnWave();
+  updateHUD();
+  startMusic();
+  lastTime = 0;
+  requestAnimationFrame(loop);
+}
+
+function spawnWave() {
+  const count = 4 + wave * 2;   // 6, 8, 10, 12 …
+  for (let i = 0; i < count; i++) {
+    const type = i % 2 === 0 ? 'D' : 'T';
+    let x, y;
+    do {
+      x = ATOM_R + Math.random() * (W - ATOM_R * 2);
+      y = ATOM_R + Math.random() * (H - ATOM_R * 2);
+    } while (dist({ x, y }, { x: W / 2, y: H / 2 }) < 130);
+    const ang = Math.random() * Math.PI * 2;
+    const spd = 32 + Math.random() * 18 + wave * 4;
+    atoms.push({ type, x, y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
+                 charged: false, chargeLife: 0 });
+  }
+}
+
+// ── Shoot ──────────────────────────────────────────────────────────────────
+function tryShoot() {
+  if (state !== 'playing' || shootCooldown > 0) return;
+  const ang = aimAngle();
+  shots.push({ x: player.x, y: player.y,
+               vx: Math.cos(ang) * SHOT_SPEED, vy: Math.sin(ang) * SHOT_SPEED,
+               life: SHOT_LIFE });
+  shootCooldown = 220;
+  shotSound();
+}
+
+function aimAngle() {
+  if (LOW_PERF) {
+    // Auto-aim: nearest uncharged atom first, else any atom
+    let best = null, bestD = Infinity;
+    for (const a of atoms) {
+      const d = dist(a, player);
+      if (!a.charged && d < bestD) { bestD = d; best = a; }
+    }
+    if (!best) for (const a of atoms) {
+      const d = dist(a, player);
+      if (d < bestD) { bestD = d; best = a; }
+    }
+    if (best) return Math.atan2(best.y - player.y, best.x - player.x);
+    return player.angle;
+  }
+  return Math.atan2(mouseY - player.y, mouseX - player.x);
+}
+
+// ── Update ─────────────────────────────────────────────────────────────────
+function update(dt) {
+  if (state !== 'playing') return;
+
+  // Player movement
+  let ax = 0, ay = 0;
+  if (keys['w'] || keys['arrowup'])    ay -= 1;
+  if (keys['s'] || keys['arrowdown'])  ay += 1;
+  if (keys['a'] || keys['arrowleft'])  ax -= 1;
+  if (keys['d'] || keys['arrowright']) ax += 1;
+  if (ax || ay) {
+    const m = Math.hypot(ax, ay);
+    const ACCEL = 380;
+    player.vx += (ax / m) * ACCEL * dt;
+    player.vy += (ay / m) * ACCEL * dt;
+  }
+  const spd = Math.hypot(player.vx, player.vy);
+  if (spd > 200) { player.vx = player.vx / spd * 200; player.vy = player.vy / spd * 200; }
+  const drag = Math.pow(0.018, dt);
+  player.vx *= drag; player.vy *= drag;
+  player.x = (player.x + player.vx * dt + W) % W;
+  player.y = (player.y + player.vy * dt + H) % H;
+  player.angle = aimAngle();
+
+  if (shootCooldown > 0) shootCooldown -= dt * 1000;
+  if (player.inv > 0)    player.inv    -= dt * 1000;
+
+  // Shots
+  for (let i = shots.length - 1; i >= 0; i--) {
+    const s = shots[i];
+    s.x = (s.x + s.vx * dt + W) % W;
+    s.y = (s.y + s.vy * dt + H) % H;
+    s.life -= dt * 1000;
+    if (s.life <= 0) { shots.splice(i, 1); continue; }
+    let hit = false;
+    for (const a of atoms) {
+      if (dist(s, a) < ATOM_R + 5) {
+        // Boost atom velocity in shot direction
+        a.vx = s.vx * 0.5 + a.vx * 0.5;
+        a.vy = s.vy * 0.5 + a.vy * 0.5;
+        const aSpd = Math.hypot(a.vx, a.vy);
+        if (aSpd > ATOM_MAX_SPD) { a.vx = a.vx / aSpd * ATOM_MAX_SPD; a.vy = a.vy / aSpd * ATOM_MAX_SPD; }
+        a.charged = true; a.chargeLife = CHARGE_LIFE;
+        spawnParticles(s.x, s.y, a.type === 'D' ? '#88bbff' : '#ffaa66', 5);
+        chargeSound();
+        shots.splice(i, 1); hit = true; break;
+      }
+    }
+    if (hit) continue;
+  }
+
+  // Atoms
+  for (const a of atoms) {
+    a.x += a.vx * dt; a.y += a.vy * dt;
+    if (a.x < ATOM_R)     { a.vx =  Math.abs(a.vx); a.x = ATOM_R; }
+    if (a.x > W - ATOM_R) { a.vx = -Math.abs(a.vx); a.x = W - ATOM_R; }
+    if (a.y < ATOM_R)     { a.vy =  Math.abs(a.vy); a.y = ATOM_R; }
+    if (a.y > H - ATOM_R) { a.vy = -Math.abs(a.vy); a.y = H - ATOM_R; }
+    if (a.charged) { a.chargeLife -= dt * 1000; if (a.chargeLife <= 0) a.charged = false; }
+  }
+
+  // Atom-atom collisions
+  const dead = new Set();
+  for (let i = 0; i < atoms.length; i++) {
+    for (let j = i + 1; j < atoms.length; j++) {
+      if (dead.has(i) || dead.has(j)) continue;
+      const a = atoms[i], b = atoms[j];
+      const d = dist(a, b);
+      if (d < ATOM_R * 2) {
+        if ((a.charged || b.charged) && a.type !== b.type) {
+          doFusion((a.x + b.x) / 2, (a.y + b.y) / 2);
+          dead.add(i); dead.add(j);
+        } else {
+          // Elastic bounce
+          const nx = (b.x - a.x) / (d || 1), ny = (b.y - a.y) / (d || 1);
+          const dv = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+          if (dv > 0) { a.vx -= dv * nx; a.vy -= dv * ny; b.vx += dv * nx; b.vy += dv * ny; }
+          const ov = ATOM_R * 2 - d;
+          a.x -= nx * ov / 2; a.y -= ny * ov / 2;
+          b.x += nx * ov / 2; b.y += ny * ov / 2;
+        }
+      }
+    }
+  }
+  atoms = atoms.filter((_, i) => !dead.has(i));
+
+  // Player-atom collision
+  if (player.inv <= 0) {
+    for (const a of atoms) {
+      if (dist(player, a) < PLAYER_R + ATOM_R - 2) {
+        player.hp--; player.inv = 1800;
+        spawnParticles(player.x, player.y, '#ff4444', 12);
+        hitSound(); updateHUD();
+        if (player.hp <= 0) { gameOver(); return; }
+        break;
+      }
+    }
+  }
+
+  // Neutrons
+  for (let i = neutrons.length - 1; i >= 0; i--) {
+    const n = neutrons[i];
+    n.x = (n.x + n.vx * dt + W) % W;
+    n.y = (n.y + n.vy * dt + H) % H;
+    n.life -= dt * 1000;
+    if (n.life <= 0) { neutrons.splice(i, 1); continue; }
+    if (player.inv <= 0 && dist(player, n) < PLAYER_R + 6) {
+      player.hp--; player.inv = 1800; n.life = 0;
+      spawnParticles(player.x, player.y, '#ffaa00', 8);
+      hitSound(); updateHUD();
+      if (player.hp <= 0) { gameOver(); return; }
+    }
+  }
+
+  // Particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    const d2 = Math.pow(0.04, dt);
+    p.vx *= d2; p.vy *= d2;
+    p.life -= dt * 1000;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+
+  // Floating score text
+  for (let i = floats.length - 1; i >= 0; i--) {
+    floats[i].y -= 40 * dt;
+    floats[i].life -= dt * 1000;
+    if (floats[i].life <= 0) floats.splice(i, 1);
+  }
+
+  // Fusion flashes
+  for (let i = fusionFlashes.length - 1; i >= 0; i--) {
+    fusionFlashes[i].t -= dt * 1000;
+    if (fusionFlashes[i].t <= 0) fusionFlashes.splice(i, 1);
+  }
+
+  // Wave cleared?
+  if (atoms.length === 0 && neutrons.length === 0) {
+    wave++; updateHUD();
+    floats.push({ x: W / 2, y: H / 2, text: `WAVE ${wave}!`, color: '#00e5ff', life: 1200 });
+    spawnWave();
+  }
+}
+
+// ── Fusion ─────────────────────────────────────────────────────────────────
+function doFusion(x, y) {
+  const pts = 100 * wave;
+  score += pts; saveHi(score); updateHUD();
+  fusionFlashes.push({ x, y, t: 550 });
+  spawnParticles(x, y, '#00e5ff', 22);
+  spawnParticles(x, y, '#ffffff', 10);
+  floats.push({ x, y: y - 10, text: `+${pts}`, color: '#ffe600', life: 900 });
+  for (let i = 0; i < 3; i++) {
+    const ang = (i / 3) * Math.PI * 2 + Math.random() * 0.5;
+    neutrons.push({ x, y, vx: Math.cos(ang) * NEUTRON_SPD, vy: Math.sin(ang) * NEUTRON_SPD, life: NEUTRON_LIFE });
+  }
+  fusionSound();
+}
+
+function spawnParticles(x, y, color, n) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, s = 60 + Math.random() * 200;
+    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+                     color, life: 400 + Math.random() * 500, size: 1.5 + Math.random() * 3 });
+  }
+}
+
+function gameOver() {
+  state = 'gameover'; saveHi(score); stopMusic();
+  const ov = document.getElementById('overlay');
+  ov.style.display = 'flex';
+  ov.innerHTML = `
+    <h2>REACTOR MELTDOWN</h2>
+    <p>SCORE: ${score} &nbsp;·&nbsp; BEST: ${loadHi()} &nbsp;·&nbsp; WAVE: ${wave}</p>
+    <button class="start-btn" onclick="startGame()">▶ RETRY</button>`;
+}
+
+// ── Draw ───────────────────────────────────────────────────────────────────
+let starCanvas = null;
+function buildStars() {
+  starCanvas = document.createElement('canvas');
+  starCanvas.width = W; starCanvas.height = H;
+  const sc = starCanvas.getContext('2d');
+  sc.fillStyle = '#000510'; sc.fillRect(0, 0, W, H);
+  for (let i = 0; i < 90; i++) {
+    const sx = Math.random() * W, sy = Math.random() * H;
+    const r  = Math.random() * 1.3 + 0.2;
+    sc.beginPath(); sc.arc(sx, sy, r, 0, Math.PI * 2);
+    sc.fillStyle = `rgba(255,255,255,${0.2 + Math.random() * 0.7})`;
+    sc.fill();
+  }
+}
+
+function draw() {
+  if (!starCanvas) buildStars();
+  ctx.drawImage(starCanvas, 0, 0);
+
+  // Fusion flash rings
+  for (const f of fusionFlashes) {
+    const alpha = f.t / 550;
+    const r = (1 - alpha) * 110 + 10;
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.55;
+    const grd = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r);
+    grd.addColorStop(0, '#ffffff');
+    grd.addColorStop(0.35, '#00e5ff');
+    grd.addColorStop(1, 'transparent');
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  // Particles
+  for (const p of particles) {
+    ctx.globalAlpha = Math.min(1, p.life / 400);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Atoms
+  for (const a of atoms) {
+    const isD = a.type === 'D';
+    const core  = isD ? '#4488ff' : '#ff6622';
+    const light = isD ? '#88bbff' : '#ffaa66';
+    ctx.save();
+    if (!LOW_PERF) {
+      ctx.shadowBlur  = a.charged ? 24 : 10;
+      ctx.shadowColor = a.charged ? '#ffff00' : light;
+    }
+    // Charge ring
+    if (a.charged) {
+      const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 110);
+      ctx.beginPath(); ctx.arc(a.x, a.y, ATOM_R + 6 + pulse * 4, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(255,240,60,${0.45 + pulse * 0.45})`;
+      ctx.lineWidth = 2.5; ctx.stroke();
+    }
+    // Atom body
+    const grd = ctx.createRadialGradient(a.x - 4, a.y - 5, 2, a.x, a.y, ATOM_R);
+    grd.addColorStop(0, a.charged ? '#ffff88' : light);
+    grd.addColorStop(1, core);
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.arc(a.x, a.y, ATOM_R, 0, Math.PI * 2); ctx.fill();
+    // Label
+    ctx.shadowBlur = 0; ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px Arial Black';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(isD ? '²H' : '³H', a.x, a.y);
+    ctx.restore();
+  }
+
+  // Neutrons
+  for (const n of neutrons) {
+    ctx.globalAlpha = Math.min(1, n.life / 600);
+    if (!LOW_PERF) { ctx.shadowBlur = 8; ctx.shadowColor = '#aaaaff'; }
+    ctx.fillStyle = '#ccccff';
+    ctx.beginPath(); ctx.arc(n.x, n.y, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+  ctx.globalAlpha = 1;
+
+  // Shots
+  for (const s of shots) {
+    ctx.save();
+    if (!LOW_PERF) { ctx.shadowBlur = 7; ctx.shadowColor = '#ffe600'; }
+    ctx.strokeStyle = '#ffe600'; ctx.lineWidth = 2.5;
+    const trail = 0.055;
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y);
+    ctx.lineTo(s.x - s.vx * trail, s.y - s.vy * trail);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Player ship
+  if (state === 'playing') {
+    const blink = player.inv > 0 && Math.floor(player.inv / 130) % 2 === 0;
+    if (!blink) {
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      ctx.rotate(player.angle);
+      if (!LOW_PERF) { ctx.shadowBlur = 14; ctx.shadowColor = '#00ff88'; }
+      ctx.fillStyle = '#00ff88';
+      ctx.beginPath();
+      ctx.moveTo(14, 0);
+      ctx.lineTo(-9, -8);
+      ctx.lineTo(-5, 0);
+      ctx.lineTo(-9, 8);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // Floating score text
+  for (const f of floats) {
+    const alpha = Math.min(1, f.life / 700);
+    ctx.globalAlpha = alpha;
+    if (!LOW_PERF) { ctx.shadowBlur = 6; ctx.shadowColor = f.color; }
+    ctx.fillStyle = f.color;
+    ctx.font = 'bold 14px Arial Black';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(f.text, f.x, f.y);
+    ctx.shadowBlur = 0;
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ── Game loop ──────────────────────────────────────────────────────────────
+function loop(ts) {
+  if (state !== 'playing') return;
+  if (!lastTime) { lastTime = ts; requestAnimationFrame(loop); return; }
+  const dt = Math.min((ts - lastTime) / 1000, 0.05);
+  lastTime = ts;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ── Music ──────────────────────────────────────────────────────────────────
+let _mAC = null, _mTimer = null, _mIdx = 0, musicOn = true;
+// Driving minor-key space theme
+const MUSIC_SEQ = [
+  [220,120],[0,60],[220,120],[0,60],[330,240],[0,120],
+  [220,120],[0,60],[220,120],[0,60],[294,240],[0,120],
+  [220,120],[0,60],[330,120],[440,120],[523,240],[0,120],
+  [196,120],[0,60],[220,120],[0,60],[262,360],[0,240],
+  [330,120],[0,60],[330,120],[0,60],[440,240],[0,120],
+  [330,120],[0,60],[330,120],[0,60],[392,240],[0,120],
+  [330,120],[0,60],[440,120],[523,120],[659,240],[0,120],
+  [294,120],[0,60],[330,120],[0,60],[392,360],[0,300],
+];
+function _getAC() {
+  if (!_mAC) _mAC = new (window.AudioContext || window.webkitAudioContext)();
+  if (_mAC.state === 'suspended') _mAC.resume();
+  return _mAC;
+}
+function _playNote(freq, dur, type, vol) {
+  try {
+    const ac = _getAC();
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = type || 'square'; o.frequency.value = freq;
+    const t = ac.currentTime;
+    g.gain.setValueAtTime(vol || 0.05, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur / 1000 * 0.8);
+    o.start(t); o.stop(t + dur / 1000);
+  } catch(e) {}
+}
+function _mAdvance() {
+  if (!musicOn || state !== 'playing') return;
+  const [f, d] = MUSIC_SEQ[_mIdx];
+  if (f) _playNote(f, d);
+  _mIdx = (_mIdx + 1) % MUSIC_SEQ.length;
+  _mTimer = setTimeout(_mAdvance, d);
+}
+function startMusic() { stopMusic(); if (!musicOn) return; _mIdx = 0; _mAdvance(); }
+function stopMusic()  { clearTimeout(_mTimer); _mTimer = null; }
+function toggleMusic() {
+  musicOn = !musicOn;
+  document.getElementById('musicBtn').textContent = musicOn ? '♪ ON' : '♪ OFF';
+  if (musicOn && state === 'playing') startMusic(); else stopMusic();
+}
+
+// Sound effects
+function shotSound() {
+  try {
+    const ac = _getAC();
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = 'sine';
+    o.frequency.setValueAtTime(900, ac.currentTime);
+    o.frequency.exponentialRampToValueAtTime(200, ac.currentTime + 0.09);
+    g.gain.setValueAtTime(0.07, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.09);
+    o.start(ac.currentTime); o.stop(ac.currentTime + 0.1);
+  } catch(e) {}
+}
+function chargeSound() {
+  try {
+    const ac = _getAC();
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(400, ac.currentTime);
+    o.frequency.linearRampToValueAtTime(900, ac.currentTime + 0.14);
+    g.gain.setValueAtTime(0.09, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.14);
+    o.start(ac.currentTime); o.stop(ac.currentTime + 0.16);
+  } catch(e) {}
+}
+function fusionSound() {
+  try {
+    const ac = _getAC(), now = ac.currentTime;
+    [262, 330, 392, 523, 784, 1047].forEach((f, i) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.type = 'triangle'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.11, now + i * 0.055);
+      g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.055 + 0.28);
+      o.start(now + i * 0.055); o.stop(now + i * 0.055 + 0.3);
+    });
+  } catch(e) {}
+}
+function hitSound() {
+  try {
+    const ac = _getAC();
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = 'sawtooth'; o.frequency.value = 110;
+    g.gain.setValueAtTime(0.14, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.22);
+    o.start(ac.currentTime); o.stop(ac.currentTime + 0.24);
+  } catch(e) {}
+}
+
+// ── Back ───────────────────────────────────────────────────────────────────
+function goBack() {
+  stopMusic(); state = 'idle';
+  if (window.parent !== window) window.parent.postMessage('exitAtomSmasher', '*');
+  else window.location.href = 'index.html';
+}
+
+// ── Input ──────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (e.key === ' ') { e.preventDefault(); tryShoot(); }
+  if ((e.key === 'Enter') && state !== 'playing') startGame();
+});
+document.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+canvas.addEventListener('mousemove', e => {
+  const r = canvas.getBoundingClientRect();
+  mouseX = (e.clientX - r.left) * (W / r.width);
+  mouseY = (e.clientY - r.top)  * (H / r.height);
+});
+canvas.addEventListener('click', e => {
+  if (state === 'playing') tryShoot();
+  else startGame();
+});
+
+// Mobile D-pad
+[['btn-up','w'],['btn-down','s'],['btn-left','a'],['btn-right','d']].forEach(([id, key]) => {
+  const btn = document.getElementById(id);
+  btn.addEventListener('touchstart', e => { e.preventDefault(); keys[key] = true;  }, { passive: false });
+  btn.addEventListener('touchend',   e => { e.preventDefault(); keys[key] = false; }, { passive: false });
+});
+document.getElementById('btn-fire').addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (state === 'playing') tryShoot(); else startGame();
+}, { passive: false });
+
+// ── Scaling ────────────────────────────────────────────────────────────────
+let _natH = 0;
+function fitToScreen() {
+  const wrap = document.getElementById('wrap');
+  if (!_natH) {
+    wrap.style.transform = ''; wrap.style.marginTop = '';
+    _natH = wrap.getBoundingClientRect().height;
+  }
+  const s = Math.max(0.35, Math.min(window.innerWidth / W, window.innerHeight / _natH, 1));
+  wrap.style.transform = `scale(${s})`;
+  wrap.style.marginTop = Math.max(0, (window.innerHeight - _natH * s) / 2) + 'px';
+}
+window.addEventListener('resize', fitToScreen);
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+if (window.parent !== window) {
+  document.querySelector('button[onclick="goBack()"]').style.display = 'none';
+}
+state = 'idle';
+document.getElementById('hud-best').textContent = loadHi();
+document.getElementById('startBtn').addEventListener('click', startGame);
+buildStars();
+ctx.drawImage(starCanvas, 0, 0);
+fitToScreen();
+</script>
+</body>
+</html>
