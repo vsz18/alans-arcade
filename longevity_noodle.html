@@ -406,17 +406,32 @@ const MUSIC_SEQ = [
   [330,150],[392,150],[440,150],[523,150],[440,300],[392,150],[330,150],[294,300],[0,150],
   [330,150],[294,150],[262,300],[294,150],[262,450],[0,400],
 ];
+
+// Unlock AudioContext on first touch (required by iOS Safari)
+document.addEventListener('touchstart', function unlock() {
+  if (!_mAC) _mAC = new (window.AudioContext || window.webkitAudioContext)();
+  _mAC.resume();
+  document.removeEventListener('touchstart', unlock);
+}, { once: true, passive: true });
+
+function _getAC() {
+  if (!_mAC) _mAC = new (window.AudioContext || window.webkitAudioContext)();
+  return _mAC;
+}
+function _playTone(ac, type, freq, durMs, vol, offset) {
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.connect(g); g.connect(ac.destination);
+  o.type = type; o.frequency.value = freq;
+  const t = ac.currentTime + (offset || 0);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + durMs / 1000 * 0.85);
+  o.start(t); o.stop(t + durMs / 1000);
+}
 function _mNote(freq, durMs) {
   try {
-    if (!_mAC) _mAC = new (window.AudioContext || window.webkitAudioContext)();
-    if (_mAC.state === 'suspended') _mAC.resume();
-    const o = _mAC.createOscillator(), g = _mAC.createGain();
-    o.connect(g); g.connect(_mAC.destination);
-    o.type = 'triangle'; o.frequency.value = freq;
-    const t = _mAC.currentTime;
-    g.gain.setValueAtTime(0.07, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + durMs / 1000 * 0.85);
-    o.start(t); o.stop(t + durMs / 1000);
+    const ac = _getAC();
+    const play = () => _playTone(ac, 'triangle', freq, durMs, 0.07);
+    ac.state === 'suspended' ? ac.resume().then(play) : play();
   } catch(e) {}
 }
 function _mAdvance() {
@@ -428,19 +443,10 @@ function _mAdvance() {
 }
 function eatSound(pts) {
   try {
-    if (!_mAC) _mAC = new (window.AudioContext || window.webkitAudioContext)();
-    if (_mAC.state === 'suspended') _mAC.resume();
-    // pitch scales with food value: 10→523, 30→659, 50→784, 100→ arpeggio
+    const ac = _getAC();
     const freqs = pts >= 100 ? [523,659,784,1047] : pts >= 50 ? [784] : pts >= 30 ? [659] : [523];
-    freqs.forEach((f, i) => {
-      const o = _mAC.createOscillator(), g = _mAC.createGain();
-      o.connect(g); g.connect(_mAC.destination);
-      o.type = 'square'; o.frequency.value = f;
-      const t = _mAC.currentTime + i * 0.07;
-      g.gain.setValueAtTime(0.1, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-      o.start(t); o.stop(t + 0.14);
-    });
+    const play = () => freqs.forEach((f, i) => _playTone(ac, 'square', f, 120, 0.1, i * 0.07));
+    ac.state === 'suspended' ? ac.resume().then(play) : play();
   } catch(e) {}
 }
 function startMusic() { stopMusic(); if (!musicOn) return; _mIdx = 0; _mAdvance(); }

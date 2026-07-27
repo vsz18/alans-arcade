@@ -553,21 +553,30 @@ const MUSIC_SEQ = [
   [330,120],[0,60],[440,120],[523,120],[659,240],[0,120],
   [294,120],[0,60],[330,120],[0,60],[392,360],[0,300],
 ];
+// Unlock AudioContext on first touch (required by iOS Safari)
+document.addEventListener('touchstart', function unlock() {
+  if (!_mAC) _mAC = new (window.AudioContext || window.webkitAudioContext)();
+  _mAC.resume();
+  document.removeEventListener('touchstart', unlock);
+}, { once: true, passive: true });
+
 function _getAC() {
   if (!_mAC) _mAC = new (window.AudioContext || window.webkitAudioContext)();
-  if (_mAC.state === 'suspended') _mAC.resume();
   return _mAC;
 }
 function _playNote(freq, dur, type, vol) {
   try {
     const ac = _getAC();
-    const o = ac.createOscillator(), g = ac.createGain();
-    o.connect(g); g.connect(ac.destination);
-    o.type = type || 'square'; o.frequency.value = freq;
-    const t = ac.currentTime;
-    g.gain.setValueAtTime(vol || 0.05, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + dur / 1000 * 0.8);
-    o.start(t); o.stop(t + dur / 1000);
+    const play = () => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.type = type || 'square'; o.frequency.value = freq;
+      const t = ac.currentTime;
+      g.gain.setValueAtTime(vol || 0.05, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur / 1000 * 0.8);
+      o.start(t); o.stop(t + dur / 1000);
+    };
+    ac.state === 'suspended' ? ac.resume().then(play) : play();
   } catch(e) {}
 }
 function _mAdvance() {
@@ -585,10 +594,15 @@ function toggleMusic() {
   if (musicOn && state === 'playing') startMusic(); else stopMusic();
 }
 
-// Sound effects
-function shotSound() {
+// Sound effects — all use resume().then() to handle suspended AudioContext on mobile
+function _withAC(fn) {
   try {
     const ac = _getAC();
+    ac.state === 'suspended' ? ac.resume().then(() => fn(ac)) : fn(ac);
+  } catch(e) {}
+}
+function shotSound() {
+  _withAC(ac => {
     const o = ac.createOscillator(), g = ac.createGain();
     o.connect(g); g.connect(ac.destination);
     o.type = 'sine';
@@ -597,11 +611,10 @@ function shotSound() {
     g.gain.setValueAtTime(0.07, ac.currentTime);
     g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.09);
     o.start(ac.currentTime); o.stop(ac.currentTime + 0.1);
-  } catch(e) {}
+  });
 }
 function chargeSound() {
-  try {
-    const ac = _getAC();
+  _withAC(ac => {
     const o = ac.createOscillator(), g = ac.createGain();
     o.connect(g); g.connect(ac.destination);
     o.type = 'triangle';
@@ -610,11 +623,11 @@ function chargeSound() {
     g.gain.setValueAtTime(0.09, ac.currentTime);
     g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.14);
     o.start(ac.currentTime); o.stop(ac.currentTime + 0.16);
-  } catch(e) {}
+  });
 }
 function fusionSound() {
-  try {
-    const ac = _getAC(), now = ac.currentTime;
+  _withAC(ac => {
+    const now = ac.currentTime;
     [262, 330, 392, 523, 784, 1047].forEach((f, i) => {
       const o = ac.createOscillator(), g = ac.createGain();
       o.connect(g); g.connect(ac.destination);
@@ -623,18 +636,17 @@ function fusionSound() {
       g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.055 + 0.28);
       o.start(now + i * 0.055); o.stop(now + i * 0.055 + 0.3);
     });
-  } catch(e) {}
+  });
 }
 function hitSound() {
-  try {
-    const ac = _getAC();
+  _withAC(ac => {
     const o = ac.createOscillator(), g = ac.createGain();
     o.connect(g); g.connect(ac.destination);
     o.type = 'sawtooth'; o.frequency.value = 110;
     g.gain.setValueAtTime(0.14, ac.currentTime);
     g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.22);
     o.start(ac.currentTime); o.stop(ac.currentTime + 0.24);
-  } catch(e) {}
+  });
 }
 
 // ── Back ───────────────────────────────────────────────────────────────────
