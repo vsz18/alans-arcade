@@ -11,7 +11,6 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     font-family: 'Arial Black', Arial, sans-serif;
     color: #fff;
     user-select: none;
@@ -133,6 +132,7 @@ let dyingTimer = 0;
 let totalDots = 0;
 let dotsLeft = 0;
 let animFrame = 0;
+let dt = 1; // normalized elapsed time per tick (1 == 60fps baseline the original speed constants were tuned for)
 
 let wallCanvas = null, dotCanvas = null, dotsDirty = true;
 let _pelletCanvas = null;
@@ -340,8 +340,8 @@ function movePac() {
     }
   }
 
-  const nx = pac.x + pac.dx * pac.speed;
-  const ny = pac.y + pac.dy * pac.speed;
+  const nx = pac.x + pac.dx * pac.speed * dt;
+  const ny = pac.y + pac.dy * pac.speed * dt;
 
   const blocked = isWall(col(nx + pac.dx * CELL * 0.45),
                          row(ny + pac.dy * CELL * 0.45));
@@ -464,8 +464,8 @@ function moveGhost(g) {
     }
   }
 
-  g.x += g.dx * spd;
-  g.y += g.dy * spd;
+  g.x += g.dx * spd * dt;
+  g.y += g.dy * spd * dt;
 
   // Tunnel
   if (g.x < -CELL / 2)             g.x = COLS * CELL + CELL / 2;
@@ -736,6 +736,10 @@ let _lastFrameTime = 0;
 function loop(ts) {
   requestAnimationFrame(loop);
   if (FRAME_DUR > 0 && ts - _lastFrameTime < FRAME_DUR) return;
+  // Scale movement by real elapsed time so throttling the tick rate (mobile's 30fps
+  // cap) doesn't also cut movement speed in half — clamp to avoid huge jumps after
+  // a backgrounded tab/dropped frames.
+  dt = _lastFrameTime ? Math.min((ts - _lastFrameTime) / (1000 / 60), 3) : 1;
   _lastFrameTime = ts;
   animFrame++;
   drawMaze();
